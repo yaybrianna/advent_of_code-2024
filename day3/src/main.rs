@@ -4,8 +4,8 @@ mod cliargs;
 #[path = "./utils/file.rs"]
 mod file;
 
-use crate::cliargs::get_parse_conditionals;
-use crate::cliargs::set_parse_conditionals;
+use cliargs::get_parse_conditionals;
+use cliargs::set_parse_conditionals;
 use clap::Parser;
 use regex::{Captures, Regex};
 
