@@ -6,8 +6,8 @@ struct Similarity{
 }
 
 fn main() {
-    let file_path = "input.txt";
-    //let file_path = "test_case.txt";
+    let file_path = "./source_data/input.txt";
+    //let file_path = "./source_data/test_case.txt";
     let data = Box::new(load_input(&file_path));
     let mut list_a = Vec::new();
     let mut list_b = Vec::new();
