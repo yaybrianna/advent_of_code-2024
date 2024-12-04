@@ -46,26 +46,33 @@ fn main() {
 
     println!("Input 2D Vector:\n{:?}", data);
 
+    // part 1
     let xmas_count = get_xmas_count_from_matrix(&data);
     println!(
-        "The Word Search Found: {} instances of the word ''XMAS'",
+        "The Word Search Found: {} instances of the word 'XMAS'",
         xmas_count
     );
+
 }
 
 fn get_xmas_count_from_matrix(data: &Vec<Vec<char>>) -> u32 {
+    let remaining_word = "MAS";
     for x in 0..data.len() {
         for y in 0..data[x].len() {
             if data[x][y] == 'X' {
-                search_directions_for_remaining_word(x, y, data);
+                search_directions_for_remaining_word(remaining_word, x, y, data);
             }
         }
     }
     return get_xmas_count();
 }
 
-fn search_directions_for_remaining_word(start_x: usize, start_y: usize, data: &Vec<Vec<char>>) {
-    let word_match = "MAS";
+fn search_directions_for_remaining_word(
+    remaining_word: &str,
+    start_x: usize,
+    start_y: usize,
+    data: &Vec<Vec<char>>,
+) {
     thread::scope(|s| {
         for direction in Direction::iter() {
             let _tbuilder = thread::Builder::new()
@@ -73,152 +80,81 @@ fn search_directions_for_remaining_word(start_x: usize, start_y: usize, data: &V
                 .spawn_scoped(s, move || {
                     let x = start_x.clone();
                     let y = start_y.clone();
+
+                    println!(
+                        "Dir: {}, Current Position: {},{}",
+                        direction.to_string(),
+                        x,
+                        y
+                    );
+                    let mut word: String = String::from("");
                     match direction {
                         Direction::Left => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if y > 2 {
-                                for i in 1..4 {
+                            if y >= remaining_word.len() {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x][y - i]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                         Direction::Right => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if y <= data[x].len() - 4 {
-                                for i in 1..4 {
+                            if y < data[x].len() - remaining_word.len() {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x][y + i]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                         Direction::Up => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if x > 2 {
-                                for i in 1..4 {
+                            if x >= remaining_word.len() {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x - i][y]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                         Direction::Down => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if x <= data.len() - 4 {
-                                for i in 1..4 {
+                            if x < data.len() - remaining_word.len() {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x + i][y]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                         Direction::LeftUp => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if x > 2 && y > 2 {
-                                for i in 1..4 {
+                            if x >= remaining_word.len() && y >= remaining_word.len() {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x - i][y - i]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                         Direction::RightUp => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if x > 2 && y <= data[x].len() - 4 {
-                                for i in 1..4 {
+                            if x >= remaining_word.len() && y < data[x].len() - remaining_word.len()
+                            {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x - i][y + i]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                         Direction::LeftDown => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if x < data.len() - 3 && y > 2 {
-                                for i in 1..4 {
+                            if x < data.len() - remaining_word.len() && y >= remaining_word.len() {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x + i][y - i]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                         Direction::RightDown => {
-                            println!(
-                                "Dir: {}, Current Position: {},{}",
-                                direction.to_string(),
-                                x,
-                                y
-                            );
-                            let mut word: String = String::from("");
-                            if x < data.len() - 3 && y < data[x].len() - 3 {
-                                for i in 1..4 {
+                            if x < data.len() - remaining_word.len()
+                                && y < data[x].len() - remaining_word.len()
+                            {
+                                for i in 1..=remaining_word.len() {
                                     word.push(data[x + i][y + i]);
                                 }
-                                if word == word_match {
-                                    add_xmas_count(1);
-                                }
-                                println!("Dir: {}, word: {}", direction.to_string(), word)
                             }
                         }
                     }
+
+                    if word == remaining_word {
+                        add_xmas_count(1);
+                    }
+
+                    println!("Dir: {}, found: {}, looking for: {}", direction.to_string(), word, remaining_word);
                 });
         }
     })
