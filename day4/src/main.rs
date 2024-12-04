@@ -48,13 +48,48 @@ fn main() {
 
     // part 1
     let xmas_count = get_xmas_count_from_matrix(&data);
+    println!("\n\nPART 1");
     println!(
         "The Word Search Found: {} instances of the word 'XMAS'",
         xmas_count
     );
 
+    //part 2
+    let x_mas_count = get_x_mas_count_from_matrix(&data);
+    println!("\n\nPART 2");
+    println!(
+        "The X-MAS  Search Found: {} instances of an 'X-MAS'",
+        x_mas_count
+    );
 }
-
+fn get_x_mas_count_from_matrix(data: &Vec<Vec<char>>) -> u32 {
+    let mut x_mas_count = 0;
+    for x in 1..data.len() - 1 {
+        for y in 1..data[x].len() - 1 {
+            if data[x][y] == 'A' {
+                let mut chars: [char; 4] = ['x'; 4];
+                let mut has_first_leg = false;
+                let mut has_second_leg = false;
+                chars[0] = data[x - 1][y - 1];
+                chars[1] = data[x - 1][y + 1];
+                chars[2] = data[x + 1][y + 1];
+                chars[3] = data[x + 1][y - 1];
+                if chars[0] == 'M' && chars[2] == 'S' || chars[0] == 'S' && chars[2] == 'M' {
+                    has_first_leg = true;
+                }
+                if has_first_leg {
+                    if chars[1] == 'M' && chars[3] == 'S' || chars[1] == 'S' && chars[3] == 'M' {
+                        has_second_leg = true;
+                    }
+                }
+                if has_first_leg && has_second_leg {
+                    x_mas_count += 1;
+                }
+            }
+        }
+    }
+    return x_mas_count;
+}
 fn get_xmas_count_from_matrix(data: &Vec<Vec<char>>) -> u32 {
     let remaining_word = "MAS";
     for x in 0..data.len() {
@@ -154,7 +189,12 @@ fn search_directions_for_remaining_word(
                         add_xmas_count(1);
                     }
 
-                    println!("Dir: {}, found: {}, looking for: {}", direction.to_string(), word, remaining_word);
+                    println!(
+                        "Dir: {}, found: {}, looking for: {}",
+                        direction.to_string(),
+                        word,
+                        remaining_word
+                    );
                 });
         }
     })
