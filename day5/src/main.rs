@@ -1,6 +1,7 @@
 #[path = "./utils/file.rs"]
 mod file;
 
+
 use clap::Parser;
 
 #[derive(Parser)]
@@ -10,19 +11,23 @@ pub struct Cli {
     file: String,
 }
 
-struct OrderingPair {
-    first: i32,
-    second: i32,
-}
-
 fn main() {
     let cli = Cli::parse();
     let file_path = cli.file;
     let raw_data = file::load_file(&file_path);
     let blocks = get_blocks_from_raw_data(&raw_data);
-    let ordering_rules: Vec<&'a str> = get_ordering_rules_from_ordering_rule_pairs(&blocks[0]);
-    let correctly_ordered_updates = get_correctly_ordered_updates(&blocks[1], &ordering_rules);
+    let ordering_rules: Vec<Vec<i32>> = get_ordering_rules_from_ordering_rule_pairs(&blocks[0]);
+    let updates = get_updates_as_i32_vec(&blocks[1]);
+    let valid_updates =
+        get_indexes_of_correctly_sorted_updates(&updates, &ordering_rules);
+    let middle_pages = get_middle_page_numbers_from_valid_updates(&valid_updates);
+    let mut sum = 0;
+    for page in middle_pages {
+        sum += page;
+    }
+    println!("Middle Pages Sum: {}", sum);
 }
+
 
 fn get_blocks_from_raw_data(data: &String) -> Vec<Vec<&str>> {
     let mut lines = data.lines().peekable();
@@ -46,17 +51,57 @@ fn get_ordering_rules_from_ordering_rule_pairs(ordering_rule_pairs: &Vec<&str>) 
     return ordering_rules;
 }
 
-fn get_correctly_ordered_updates(
-    update_strings: &Vec<&'a str>,
-    ordering_rules: &Vec<Vec<i32>>,
-) -> Vec<&str> {
-    let mut correctly_ordered_updates: Vec<&str> = Vec::new();
+fn get_updates_as_i32_vec(update_strings: &Vec<&str>) -> Vec<Vec<i32>> {
+    let mut updates: Vec<Vec<i32>> = Vec::new();
     for update_string in update_strings {
         let numbers: Vec<i32> = update_string
             .split(',')
             .map(|us| us.parse::<i32>().unwrap())
             .collect();
-        for i in 0..numbers.len() {}
+
+        updates.push(numbers);
     }
-    return correctly_ordered_updates;
+    println!("{:?}", updates);
+
+    return updates;
+}
+
+fn get_indexes_of_correctly_sorted_updates(
+    updates: &Vec<Vec<i32>>,
+    sorting_rules: &Vec<Vec<i32>>,
+) -> Vec<Vec<i32>> {
+    let mut valid_updates: Vec<Vec<i32>> = Vec::new();
+    for update in updates {
+        let mut is_update_good = false;
+        for rule in sorting_rules {
+            let left_pos = update.iter().position(|&page| page == rule[0]);
+            let right_pos = update.iter().position(|&page| page == rule[1]);
+            if left_pos.is_none() || right_pos.is_none(){
+                continue;
+            }
+            println!("Rule: {:?}", rule);
+            println!("{:?}|{:?}", left_pos, right_pos);
+            if left_pos > right_pos {
+                is_update_good = false;
+                break;
+            }
+            is_update_good = true;
+        }
+        if is_update_good {
+            valid_updates.push(update.clone());
+        }
+    }
+
+    println!("\nValid Updates\n{:?} \n", valid_updates);
+
+    return valid_updates;
+}
+
+fn get_middle_page_numbers_from_valid_updates(updates: &Vec<Vec<i32>>) -> Vec<i32> {
+    let mut middle_pages: Vec<i32> = Vec::new();
+    for update in updates {
+        middle_pages.push(update[update.len() / 2])
+    }
+    println!("Middle Pages: {:?}", middle_pages);
+    return middle_pages;
 }
