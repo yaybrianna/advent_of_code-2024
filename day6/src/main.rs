@@ -2,11 +2,10 @@
 mod file;
 use std::{
     collections::HashSet,
-    fmt::{format, write},
+    fmt::{format},
     panic, process,
     sync::atomic::{AtomicU32, Ordering},
     thread::{self},
-    usize,
 };
 use strum::EnumCount;
 use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
