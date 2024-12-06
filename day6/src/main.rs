@@ -70,7 +70,7 @@ fn get_obstacle_count_that_cause_loop(
                 let _thread_builder = thread::Builder::new()
                     .name(format(format_args!("{:?}", Coordinate { x, y })))
                     .spawn_scoped(s, move || {
-                        println!("Spawned Thread: {:?}", thread::current().name().unwrap());
+                        println!("Spawned Thread: Placed obstical at {:?}", thread::current().name().unwrap());
 
                         let option = traverse_map_get_unique_coordinates(&local_map);
                         if option.is_none() {
