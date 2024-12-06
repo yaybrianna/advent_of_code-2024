@@ -1,7 +1,14 @@
 #[path = "./utils/file.rs"]
 mod file;
-use std::{collections::HashSet, mem, ops::Add, usize};
-use strum::{EnumCount, IntoEnumIterator};
+use std::{
+    collections::HashSet,
+    fmt::{format, write},
+    panic, process,
+    sync::atomic::{AtomicU32, Ordering},
+    thread::{self},
+    usize,
+};
+use strum::EnumCount;
 use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
 
 use clap::Parser;
@@ -18,17 +25,66 @@ struct Coordinate {
     y: usize,
 }
 
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
+struct DirectionalCoordinate {
+    coordinate: Coordinate,
+    direction: Direction,
+}
+
+static OBSTACLE_COUNT: AtomicU32 = AtomicU32::new(0);
+
 fn main() {
+    let orig_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        // invoke the default handler and exit the process
+        orig_hook(panic_info);
+        process::exit(1);
+    }));
     let cli = Cli::parse();
     let file_path = cli.file;
     let raw_data = file::load_file(&file_path);
     let map = initilize_map(&raw_data);
 
-    let unique_coordinates = traverse_map_get_unique_coordinates(&map);
-    println!("\n\nUnique Coordinate Count: {}", unique_coordinates.len())
+    //part 1
+    let unique_coordinates = traverse_map_get_unique_coordinates(&map).unwrap();
+    println!("\n\nUnique Coordinate Count: {}", unique_coordinates.len());
+
+    //part 2
+    get_obstacle_count_that_cause_loop(&map, &unique_coordinates);
+    println!("\n\nSUCCESSFULLY PLACED {} OBSTACLES", get_obstacle_count());
 }
 
-fn traverse_map_get_unique_coordinates(map: &Vec<Vec<char>>) -> HashSet<Coordinate> {
+fn get_obstacle_count_that_cause_loop(
+    map: &Vec<Vec<char>>,
+    original_unique_coordinates: &HashSet<Coordinate>,
+) {
+    thread::scope(|s| {
+        for x in 0..map.len() {
+            for y in 0..map[x].len() {
+                let mut local_map = map.clone();
+                if local_map[x][y] == '^'
+                    || !original_unique_coordinates.contains(&Coordinate { x, y })
+                {
+                    continue;
+                }
+                local_map[x][y] = '#';
+                let _thread_builder = thread::Builder::new()
+                    .name(format(format_args!("{:?}", Coordinate { x, y })))
+                    .spawn_scoped(s, move || {
+                        println!("Spawned Thread: {:?}", thread::current().name().unwrap());
+
+                        let option = traverse_map_get_unique_coordinates(&local_map);
+                        if option.is_none() {
+                            add_successful_obstacle();
+                            println!("ADDED AN OBSTACLE TO THE COUNT")
+                        }
+                    });
+            }
+        }
+    })
+}
+
+fn traverse_map_get_unique_coordinates(map: &Vec<Vec<char>>) -> Option<HashSet<Coordinate>> {
     let mut unique_coordinates: HashSet<Coordinate> = HashSet::new();
 
     let current_pos = get_starting_position(map);
@@ -39,33 +95,46 @@ fn traverse_map_get_unique_coordinates(map: &Vec<Vec<char>>) -> HashSet<Coordina
     let mut current_direction = Direction::Up;
     let mut can_exit = is_able_to_exit(&map, &current_pos, &current_direction);
 
+    let mut loop_corners: Vec<DirectionalCoordinate> = Vec::new();
+
     println!("Starting Position: {:?}", current_pos);
 
     while !can_exit {
+        let have_we_been_here_before = unique_coordinates.contains(&current_pos);
         unique_coordinates.insert(current_pos.clone());
         can_exit = is_able_to_exit(&map, &current_pos, &current_direction);
         if can_exit {
             break;
         }
-        let can_proceed = !is_facing_obsitcle(
-            &map,
-            &current_pos,
-            &current_direction
-        );
-        println!("Current Position: {:?}, Can Proceed? {}", current_pos, can_proceed);
+        let can_proceed = !is_facing_obsitcle(&map, &current_pos, &current_direction);
+        // println!("Current Position: {:?}, Can Proceed? {}",current_pos, can_proceed);
         if !can_proceed {
             current_direction =
                 Direction::from_usize(((current_direction as usize) + 1) % Direction::COUNT);
+            if have_we_been_here_before {
+                loop_corners.push(DirectionalCoordinate {
+                    coordinate: current_pos.clone(),
+                    direction: current_direction.clone(),
+                });
+                //println!("Loop Corners({}): {:?}", loop_corners.len(), loop_corners);
+            }
+            if loop_corners.len() % 2 == 0 && loop_corners.len() > 4 {
+                for i in 0..=3 {
+                    if loop_corners[i] == loop_corners[i + (loop_corners.len() / 2) - 1] {
+                        continue;
+                    }
+                    return None;
+                }
+            }
             continue;
         }
 
         current_pos.move_direction(&current_direction);
-
     }
 
     println!("\nSUCCESSFULLY EXITED MAP");
 
-    return unique_coordinates;
+    return Some(unique_coordinates);
 }
 
 fn is_able_to_exit(
@@ -74,7 +143,7 @@ fn is_able_to_exit(
     current_direction: &Direction,
 ) -> bool {
     let adjacent_edges = get_immediately_adjacent_edges(&map, &current_pos);
-    println!("Adjacent Edges: {:?}", adjacent_edges);
+    //println!("Adjacent Edges: {:?}", adjacent_edges);
     if adjacent_edges.len() == 0 {
         return false;
     }
@@ -107,15 +176,18 @@ fn get_immediately_adjacent_edges(
     return directions;
 }
 
-fn is_facing_obsitcle(map: &Vec<Vec<char>>, current_pos: &Coordinate, direction: &Direction) -> bool {
+fn is_facing_obsitcle(
+    map: &Vec<Vec<char>>,
+    current_pos: &Coordinate,
+    direction: &Direction,
+) -> bool {
     let mut coordinate_to_check = current_pos.clone();
     coordinate_to_check.move_direction(direction);
-    if map[coordinate_to_check.x][coordinate_to_check.y] == '#'{
+    if map[coordinate_to_check.x][coordinate_to_check.y] == '#' {
         return true;
     }
     return false;
-
- }
+}
 
 fn get_starting_position(map: &Vec<Vec<char>>) -> Option<Coordinate> {
     for x in 0..map.len() {
@@ -129,7 +201,7 @@ fn get_starting_position(map: &Vec<Vec<char>>) -> Option<Coordinate> {
 }
 
 #[repr(usize)]
-#[derive(Debug, EnumCountMacro, EnumIter, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, EnumCountMacro, EnumIter, Copy, Clone, Eq, PartialEq, Hash)]
 enum Direction {
     Up,
     Right,
@@ -167,4 +239,16 @@ fn initilize_map(raw_data: &String) -> Vec<Vec<char>> {
         map.push(tmp);
     }
     return map;
+}
+
+pub fn get_obstacle_count() -> u32 {
+    OBSTACLE_COUNT.load(Ordering::SeqCst)
+}
+
+pub fn set_obstacle_count(count: u32) {
+    OBSTACLE_COUNT.store(count, Ordering::SeqCst);
+}
+
+pub fn add_successful_obstacle() -> u32 {
+    OBSTACLE_COUNT.fetch_add(1, Ordering::SeqCst)
 }
