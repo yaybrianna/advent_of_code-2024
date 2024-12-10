@@ -1,6 +1,6 @@
 #[path = "./utils/file.rs"]
 mod file;
-use std::{collections::VecDeque, panic, process};
+use std::{panic, process};
 
 use clap::Parser;
 
@@ -10,10 +10,10 @@ pub struct Cli {
     #[arg(short, long, value_name = "FILE", required = true)]
     file: String,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Operation {
-    total: u32,
-    operands: Vec<u32>,
+    total: i64,
+    operands: Vec<i64>,
 }
 
 fn main() {
@@ -27,109 +27,111 @@ fn main() {
     let file_path = cli.file;
     let raw_data = file::load_file(&file_path);
     let operations = get_operations_from_raw_data(&raw_data);
-    let valid_operations = get_valid_operations(&operations);
+    let mut allowed_operators = Vec::new();
+    //part 1
+    allowed_operators.append(&mut vec!['+', '-']);
+    let valid_operations = get_valid_operations(&operations, &allowed_operators);
+    let calibration_total = get_total_calibaration_result(&valid_operations);
+    println!("Calibration Total: {}", calibration_total);
+
+    //part two
+    allowed_operators.push('|');
+    let valid_operations = get_valid_operations(&operations, &allowed_operators);
     let calibration_total = get_total_calibaration_result(&valid_operations);
     println!("Calibration Total: {}", calibration_total);
 }
 
-fn get_total_calibaration_result(operations: &Vec<&Operation>) -> u32 {
+fn get_total_calibaration_result(operations: &Vec<Operation>) -> i64 {
     let mut sum = 0;
     for operation in operations {
         sum += operation.total;
     }
     return sum;
 }
-
-fn get_valid_operations(operations: &Vec<Operation>) -> Vec<&Operation> {
-    let mut valid_operations = Vec::new();
-    for operation in operations {
-        let expressions = generate_test_expressions_operation(operation);
-        for expression in expressions {
-            let result = evaluate_math_expression(expression.as_str());
-            if result == operation.total {
-                valid_operations.push(operation);
-            }
-        }
-    }
-    return valid_operations;
+fn get_valid_operations(
+    operations: &Vec<Operation>,
+    allowed_operators: &Vec<char>,
+) -> Vec<Operation> {
+    return operations
+        .iter()
+        .filter(|operation| is_valid_operation(operation, allowed_operators))
+        .map(|operation| operation.clone())
+        .collect();
 }
 
-fn generate_test_expressions_operation(operation: &Operation) -> Vec<String> {
-    let mut test_expressions = Vec::new();
-    let valid_operators = vec!['+', '*'];
-    let num_possible_variant = (operation.operands.len() - 1) * 2;
-    println!("Operands: {:?}", operation.operands);
-    println!("Possible Variants: {num_possible_variant}");
-    let mut char_vec: Vec<char> = Vec::new();
-    get_operators_for_operand(
-        'r',
-        &valid_operators,
-        0,
-        (num_possible_variant) as u32,
-        &mut char_vec,
-    );
+fn is_valid_operation(operation: &Operation, allowed_operators: &Vec<char>) -> bool {
+    let mut expressions: Vec<i64> = Vec::new();
 
-    //    println!("Operators: {:?}", operators);
-    println!("{:?}", char_vec);
-    return test_expressions;
-}
-
-fn get_operators_for_operand(
-    valid_operator: char,
-    valid_operators: &Vec<char>,
-    depth: u32,
-    possible_variations: u32,
-    vector: &mut Vec<char>,
-) {
-    //println!("{:?}", vector);
-    if depth == possible_variations / 2 {
-        vector.push(valid_operator.clone());
-        return;
-    }
-    if valid_operator == 'r' {
-        vector.pop();
-    }
-    for i in 0..valid_operators.len() {
-        get_operators_for_operand(
-            valid_operators[i],
-            valid_operators,
-            depth + 1,
-            possible_variations,
-            vector,
+    if !operation.operands.is_empty() {
+        recursively_get_expressions(
+            &operation.operands[1..].to_vec(),
+            operation.operands[0],
+            &mut expressions,
+            allowed_operators,
         );
     }
+    if expressions.contains(&operation.total) {
+        return true;
+    }
+    return false;
 }
 
-fn evaluate_math_expression(expression: &str) -> u32 {
-    let mut parts: VecDeque<&str> = expression.split(" ").collect();
-    let mut result = 0;
-    let mut current_operator = "+";
-    while parts.len() > 0 {
-        let part = parts.pop_front().unwrap();
-        let number = part.parse::<u32>();
-        if number.is_err() {
-            current_operator = part;
-            continue;
+fn recursively_get_expressions(
+    operands: &Vec<i64>,
+    current_result: i64,
+    combinations: &mut Vec<i64>,
+    allowed_operators: &Vec<char>,
+) {
+    if operands.is_empty() {
+        combinations.push(current_result);
+        return;
+    }
+
+    let next_operand = &operands[0];
+    let remaining = &operands[1..].to_vec();
+    for operator in allowed_operators {
+        if *operator == '+' {
+            recursively_get_expressions(
+                remaining,
+                next_operand + current_result,
+                combinations,
+                allowed_operators,
+            );
         }
-        result = if current_operator == "+" {
-            result + number.unwrap()
-        } else if current_operator == "*" {
-            result * number.unwrap()
-        } else {
-            result
+        if *operator == '*' {
+            recursively_get_expressions(
+                remaining,
+                next_operand * current_result,
+                combinations,
+                allowed_operators,
+            );
+        }
+        if *operator == '|' {
+            let concat = format!("{}{}", current_result, next_operand).parse::<i64>();
+            recursively_get_expressions(
+                remaining,
+                concat.unwrap(),
+                combinations,
+                allowed_operators,
+            );
         }
     }
-    return result;
+    recursively_get_expressions(
+        remaining,
+        next_operand * current_result,
+        combinations,
+        allowed_operators,
+    );
 }
 
 fn get_operations_from_raw_data(data: &String) -> Vec<Operation> {
     let mut operations = Vec::new();
     for line in data.lines() {
         let partitions: Vec<&str> = line.split(": ").collect();
-        let total = partitions[0].parse::<u32>().unwrap();
-        let operands: Vec<u32> = partitions[1]
+        let total = partitions[0].parse::<i64>().unwrap();
+        let operands: Vec<i64> = partitions[1]
             .split(" ")
-            .map(|op| op.parse::<u32>().unwrap())
+            .map(|op| op.parse::<i64>().unwrap())
             .collect();
         operations.push(Operation { total, operands })
     }
