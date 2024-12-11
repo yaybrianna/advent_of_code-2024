@@ -1,6 +1,9 @@
 #[path = "./utils/file.rs"]
 mod file;
-use std::{collections::HashSet, isize, panic, process};
+use std::{
+    collections::{self, HashSet},
+    isize, panic, process, usize,
+};
 
 use clap::Parser;
 
@@ -31,7 +34,13 @@ fn main() {
     let file_path = cli.file;
     let raw_data = file::load_file(&file_path);
     let map = get_map_from_file(&raw_data);
-    let unique_antinodes = get_unique_antinodes(&map);
+
+    // part one
+    //let unique_antinodes = get_unique_antinodes(&map);
+    //println!("Unique Antinode Count: {}", unique_antinodes.len());
+
+    //part 2
+    let unique_antinodes = get_all_unique_antinodes(&map);
     println!("Unique Antinode Count: {}", unique_antinodes.len());
 }
 
@@ -124,6 +133,126 @@ fn get_antinodes_for_freq(tower_coordinates: &Coordinates) -> Coordinates {
     // println!("Anitnode Coordinates: {:?}", antinode_coordinates);
 
     return antinode_coordinates;
+}
+fn get_all_unique_antinodes(map: &Map) -> HashSet<Coordinate> {
+    let mut unique_antinodes = HashSet::new();
+    let unique_freqs = get_all_unique_frequencies(map);
+    println!("Unique Frequencies: {:?}", unique_freqs);
+
+    for frequency in unique_freqs {
+        let all_tower_coordinates = get_all_tower_locations_for_freq(map, frequency);
+        /*
+        println!(
+            "All Tower Coordinates({}): {:?}",
+            frequency, all_tower_coordinates
+        );
+        */
+        let antinodes = get_propigated_antinodes_for_freq(&map, &all_tower_coordinates);
+        let antinodes: Coordinates = antinodes
+            .iter()
+            .filter(|ac| {
+                ac.y >= 0 && ac.x >= 0 && ac.x < map.len() as isize && ac.y < map[0].len() as isize
+            })
+            .map(|ac| ac.clone())
+            .collect();
+        println!("Antinode Count: {}", antinodes.len());
+        //print_coordinates(&map, &antinodes);
+
+        for antinode in antinodes {
+            unique_antinodes.insert(antinode);
+        }
+    }
+
+    print_coordinates(&map, &unique_antinodes.clone().into_iter().collect());
+    return unique_antinodes;
+}
+fn get_propigated_antinodes_for_freq(map: &Map, tower_coordinates: &Coordinates) -> Coordinates {
+    let mut antinode_coordinates = Vec::new();
+    for i in 0..tower_coordinates.len() {
+        for j in i + 1..tower_coordinates.len() {
+            let delta_x = tower_coordinates[i].x - tower_coordinates[j].x;
+            let delta_y = tower_coordinates[i].y - tower_coordinates[j].y;
+            println!("Delta X: {} | Delta Y: {}", delta_x, delta_y);
+            let i_x;
+            let i_y;
+
+            let j_x;
+            let j_y;
+
+            if delta_x > 0 {
+                //point i is further from origin than point j so add abs to it's x
+                i_x = delta_x.abs();
+                j_x = -1 * delta_x.abs();
+            } else {
+                i_x = -1 * delta_x.abs();
+                j_x = delta_x.abs();
+            }
+            if delta_y > 0 {
+                //point i is further from origin than point j so  sub abs to it's y
+                i_y = delta_y.abs();
+                j_y = -1 * delta_y.abs();
+            } else {
+                i_y = -1 * delta_y.abs();
+                j_y = delta_y.abs();
+            }
+
+            get_all_antinodes_recursive(
+                &tower_coordinates[i],
+                &mut antinode_coordinates,
+                i_x,
+                i_y,
+                map.len() as isize,
+                map[0].len() as isize,
+            );
+            get_all_antinodes_recursive(
+                &tower_coordinates[j],
+                &mut antinode_coordinates,
+                j_x,
+                j_y,
+                map.len() as isize,
+                map[0].len() as isize,
+            );
+            get_all_antinodes_recursive(
+                &tower_coordinates[i],
+                &mut antinode_coordinates,
+                j_x,
+                j_y,
+                map.len() as isize,
+                map[0].len() as isize,
+            );
+            get_all_antinodes_recursive(
+                &tower_coordinates[j],
+                &mut antinode_coordinates,
+                i_x,
+                i_y,
+                map.len() as isize,
+                map[0].len() as isize,
+            );
+        }
+    }
+    // println!("Anitnode Coordinates: {:?}", antinode_coordinates);
+
+    return antinode_coordinates;
+}
+
+fn get_all_antinodes_recursive(
+    coordinate: &Coordinate,
+    collection: &mut Coordinates,
+    delta_x: isize,
+    delta_y: isize,
+    x_max: isize,
+    y_max: isize,
+) {
+    let new = Coordinate {
+        x: coordinate.x + delta_x as isize,
+        y: coordinate.y + delta_y as isize,
+    };
+    if new.x < 0 || new.y < 0 || new.x >= x_max || new.y >= y_max {
+        return;
+    }
+    println!("New Coordinate: {:?}", new);
+    collection.push(new.clone());
+    get_all_antinodes_recursive(&new, collection, delta_x, delta_y, x_max, y_max);
 }
 
 fn get_all_unique_frequencies(map: &Map) -> HashSet<char> {
